@@ -1,14 +1,14 @@
 export const SUPPORTED_CRYPTOS = [
-  { id: "bitcoin", symbol: "BTC", name: "Bitcoin" },
-  { id: "ethereum", symbol: "ETH", name: "Ethereum" },
-  { id: "tether", symbol: "USDT", name: "Tether" },
-  { id: "solana", symbol: "SOL", name: "Solana" },
-  { id: "binancecoin", symbol: "BNB", name: "BNB" },
-  { id: "ripple", symbol: "XRP", name: "XRP" },
-  { id: "dogecoin", symbol: "DOGE", name: "Dogecoin" },
-  { id: "cardano", symbol: "ADA", name: "Cardano" },
-  { id: "avalanche-2", symbol: "AVAX", name: "Avalanche" },
-  { id: "matic-network", symbol: "MATIC", name: "Polygon" },
+  { id: "bitcoin", symbol: "BTC", name: "Bitcoin", image: "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png" },
+  { id: "ethereum", symbol: "ETH", name: "Ethereum", image: "https://coin-images.coingecko.com/coins/images/279/large/ethereum.png" },
+  { id: "tether", symbol: "USDT", name: "Tether", image: "https://coin-images.coingecko.com/coins/images/325/large/Tether.png" },
+  { id: "solana", symbol: "SOL", name: "Solana", image: "https://coin-images.coingecko.com/coins/images/4128/large/solana.png" },
+  { id: "binancecoin", symbol: "BNB", name: "BNB", image: "https://coin-images.coingecko.com/coins/images/825/large/bnb-icon2_2x.png" },
+  { id: "ripple", symbol: "XRP", name: "XRP", image: "https://coin-images.coingecko.com/coins/images/44/large/xrp-symbol-white-128.png" },
+  { id: "dogecoin", symbol: "DOGE", name: "Dogecoin", image: "https://coin-images.coingecko.com/coins/images/5/large/dogecoin.png" },
+  { id: "cardano", symbol: "ADA", name: "Cardano", image: "https://coin-images.coingecko.com/coins/images/975/large/cardano.png" },
+  { id: "avalanche-2", symbol: "AVAX", name: "Avalanche", image: "https://coin-images.coingecko.com/coins/images/12559/large/Avalanche_Circle_RedWhite_Trans.png" },
+  { id: "matic-network", symbol: "MATIC", name: "Polygon", image: "https://coin-images.coingecko.com/coins/images/4713/large/polygon.png" },
 ];
 
 export interface CryptoPrice {
@@ -92,7 +92,7 @@ function getFallbackPrices(): CryptoPrice[] {
     current_price: fallback[c.id]?.price ?? 0,
     price_change_percentage_24h: fallback[c.id]?.change ?? 0,
     market_cap: fallback[c.id]?.cap ?? 0,
-    image: `https://assets.coingecko.com/coins/images/1/small/${c.id}.png`,
+    image: c.image,
     sparkline_in_7d: { price: Array.from({ length: 168 }, () => (fallback[c.id]?.price ?? 100) * (0.95 + Math.random() * 0.1)) },
   }));
 }

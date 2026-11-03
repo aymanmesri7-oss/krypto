@@ -1,15 +1,26 @@
 import { NextResponse } from "next/server";
 import { compareSync } from "bcryptjs";
 import { initDb, get } from "@/lib/db";
-import { createSession } from "@/lib/auth";
+import { clearLoginFailures, createSession, loginLockRemaining, recordLoginFailure } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
     await initDb();
-    const { email, password } = await request.json();
+    const body = await request.json();
+    const email = String(body.email ?? "").trim().toLowerCase();
+    const passcode = String(body.passcode ?? "");
 
-    if (!email || !password) {
-      return NextResponse.json({ error: "Email et mot de passe requis" }, { status: 400 });
+    if (!email || !passcode) {
+      return NextResponse.json({ error: "Email et code requis" }, { status: 400 });
+    }
+
+    const lock = loginLockRemaining(email);
+    if (lock > 0) {
+      const minutes = Math.ceil(lock / 60000);
+      return NextResponse.json(
+        { error: `Trop de tentatives. Réessayez dans ${minutes} min.` },
+        { status: 429 }
+      );
     }
 
     const user = get<{ id: number; email: string; password: string; role: string }>(
@@ -17,16 +28,14 @@ export async function POST(request: Request) {
       [email]
     );
 
-    if (!user || !compareSync(password, user.password)) {
-      return NextResponse.json({ error: "Email ou mot de passe incorrect" }, { status: 401 });
+    if (!user || !compareSync(passcode, user.password)) {
+      recordLoginFailure(email);
+      return NextResponse.json({ error: "Email ou code incorrect" }, { status: 401 });
     }
 
+    clearLoginFailures(email);
     await createSession({ userId: user.id, email: user.email, role: user.role });
-
-    return NextResponse.json({
-      message: "Connexion réussie",
-      user: { email: user.email, role: user.role },
-    });
+    return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { initDb, get, run } from "@/lib/db";
+import { SUPPORTED_CRYPTOS } from "@/lib/coingecko";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -42,5 +43,6 @@ export async function POST(request: Request) {
     [userId, cryptoId, amount]
   );
 
-  return NextResponse.json({ message: `${amount} ${cryptoId} crédité avec succès` });
+  const symbol = SUPPORTED_CRYPTOS.find((c) => c.id === cryptoId)?.symbol ?? cryptoId;
+  return NextResponse.json({ message: `${amount} ${symbol} crédité avec succès` });
 }

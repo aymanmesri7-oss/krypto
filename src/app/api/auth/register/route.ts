@@ -1,52 +1,45 @@
 import { NextResponse } from "next/server";
 import { hashSync } from "bcryptjs";
-import { initDb, run, get, all } from "@/lib/db";
-import { createSession, generateWalletAddress } from "@/lib/auth";
+import { initDb, run, get } from "@/lib/db";
+import { createSession, EMAIL_PATTERN, PASSCODE_PATTERN } from "@/lib/auth";
+import { ensureAddresses, generateEvmAddress } from "@/lib/wallet";
 
 export async function POST(request: Request) {
   try {
     await initDb();
-    const { email, password } = await request.json();
+    const body = await request.json();
+    const email = String(body.email ?? "").trim().toLowerCase();
+    const passcode = String(body.passcode ?? "");
 
-    if (!email || !password) {
-      return NextResponse.json({ error: "Email et mot de passe requis" }, { status: 400 });
+    if (!EMAIL_PATTERN.test(email)) {
+      return NextResponse.json({ error: "Adresse email invalide" }, { status: 400 });
+    }
+    if (!PASSCODE_PATTERN.test(passcode)) {
+      return NextResponse.json({ error: "Le code doit contenir 6 chiffres" }, { status: 400 });
     }
 
-    if (password.length < 6) {
-      return NextResponse.json({ error: "Le mot de passe doit contenir au moins 6 caractères" }, { status: 400 });
+    if (get("SELECT id FROM users WHERE email = ?", [email])) {
+      return NextResponse.json({ error: "Un wallet existe déjà avec cet email" }, { status: 409 });
     }
 
-    const existing = get("SELECT id FROM users WHERE email = ?", [email]);
-    if (existing) {
-      return NextResponse.json({ error: "Cet email est déjà utilisé" }, { status: 409 });
-    }
-
-    const hashedPassword = hashSync(password, 10);
-    const walletAddress = generateWalletAddress();
-
-    const users = all("SELECT id FROM users");
-    const role = users.length === 0 ? "admin" : "user";
-
+    const isFirstUser = !get("SELECT id FROM users LIMIT 1");
     run(
       "INSERT INTO users (email, password, wallet_address, role) VALUES (?, ?, ?, ?)",
-      [email, hashedPassword, walletAddress, role]
+      [email, hashSync(passcode, 10), generateEvmAddress(), isFirstUser ? "admin" : "user"]
     );
 
     const user = get<{ id: number; email: string; role: string }>(
       "SELECT id, email, role FROM users WHERE email = ?",
       [email]
     );
-
     if (!user) {
-      return NextResponse.json({ error: "Erreur lors de la création du compte" }, { status: 500 });
+      return NextResponse.json({ error: "Erreur lors de la création du wallet" }, { status: 500 });
     }
 
+    ensureAddresses(user.id);
     await createSession({ userId: user.id, email: user.email, role: user.role });
 
-    return NextResponse.json({
-      message: "Compte créé avec succès",
-      user: { email: user.email, role: user.role, walletAddress },
-    });
+    return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Register error:", error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });

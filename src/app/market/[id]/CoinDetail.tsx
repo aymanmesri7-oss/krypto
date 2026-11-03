@@ -1,187 +1,156 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import Navbar from "@/components/Navbar";
-import BottomNav from "@/components/BottomNav";
-import Footer from "@/components/Footer";
-import { SUPPORTED_CRYPTOS } from "@/lib/coingecko";
+import ScreenHeader from "@/components/ScreenHeader";
+import TokenIcon from "@/components/TokenIcon";
+import ActionButton from "@/components/ActionButton";
+import TransactionList from "@/components/TransactionList";
+import EmptyActivity from "@/components/EmptyActivity";
+import { ArrowDown, ArrowUp } from "@/components/icons";
+import { CHAINS, getCrypto } from "@/lib/chains";
+import { compactUsd, formatAmount, formatPct, formatUsd } from "@/lib/format";
+import { useTransactions, useWalletData } from "@/lib/useWalletData";
 
-interface PricePoint {
-  prices: [number, number][];
-}
+const PERIODS = [
+  { label: "1J", days: 1 },
+  { label: "1S", days: 7 },
+  { label: "1M", days: 30 },
+  { label: "1A", days: 365 },
+];
 
 export default function CoinDetail({ id }: { id: string }) {
-  const router = useRouter();
-  const [history, setHistory] = useState<[number, number][]>([]);
+  const meta = getCrypto(id);
+  const chain = CHAINS[id];
+  const { balances, priceOf } = useWalletData();
+  const { txs, loading: txLoading } = useTransactions(id);
   const [days, setDays] = useState(7);
-  const [coinPrice, setCoinPrice] = useState<{ current_price: number; price_change_percentage_24h: number; market_cap: number; image: string } | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const meta = SUPPORTED_CRYPTOS.find((c) => c.id === id);
+  const [history, setHistory] = useState<[number, number][]>([]);
+  const [chartLoading, setChartLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      fetch(`/api/prices?coinId=${id}&days=${days}`).then((r) => r.json()),
-      fetch("/api/prices").then((r) => r.json()),
-    ])
-      .then(([historyData, prices]: [PricePoint, Array<{ id: string; current_price: number; price_change_percentage_24h: number; market_cap: number; image: string }>]) => {
-        setHistory(historyData.prices || []);
-        const coin = prices.find((p: { id: string }) => p.id === id);
-        if (coin) setCoinPrice(coin);
-      })
-      .finally(() => setLoading(false));
+    setChartLoading(true);
+    fetch(`/api/prices?coinId=${id}&days=${days}`)
+      .then((r) => r.json())
+      .then((d) => setHistory(d.prices ?? []))
+      .catch(() => setHistory([]))
+      .finally(() => setChartLoading(false));
   }, [id, days]);
 
-  const renderChart = () => {
-    if (history.length < 2) return <div className="text-kb-muted text-center py-8 text-sm">Pas de données disponibles</div>;
-
-    const prices = history.map(([, p]) => p);
-    const min = Math.min(...prices);
-    const max = Math.max(...prices);
-    const range = max - min || 1;
-    const width = 800;
-    const height = 250;
-    const padding = 20;
-
-    const points = history.map(([, p], i) => {
-      const x = padding + (i / (history.length - 1)) * (width - padding * 2);
-      const y = padding + (1 - (p - min) / range) * (height - padding * 2);
-      return `${x},${y}`;
-    });
-
-    const isPositive = prices[prices.length - 1] >= prices[0];
-    const color = isPositive ? "#2EBD85" : "#F6465D";
-
-    const areaPoints = [
-      `${padding},${height - padding}`,
-      ...points,
-      `${width - padding},${height - padding}`,
-    ].join(" ");
-
+  if (!meta) {
     return (
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto">
-        <defs>
-          <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.2" />
-            <stop offset="100%" stopColor={color} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <polygon points={areaPoints} fill="url(#areaGrad)" />
-        <polyline points={points.join(" ")} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+      <div className="flex min-h-dvh flex-col">
+        <ScreenHeader />
+        <p className="py-20 text-center text-kb-muted">Crypto introuvable</p>
+      </div>
     );
-  };
+  }
 
-  const priceChange = coinPrice?.price_change_percentage_24h ?? 0;
-  const priceChangeAbs = coinPrice ? Math.abs(priceChange / 100 * coinPrice.current_price) : 0;
+  const price = priceOf(id);
+  const current = price?.current_price ?? 0;
+  const balance = balances[id] ?? 0;
+  const periodChange =
+    history.length > 1 ? ((history[history.length - 1][1] - history[0][1]) / history[0][1]) * 100 : price?.price_change_percentage_24h ?? 0;
 
   return (
-    <>
-      <Navbar />
-      <main className="flex-1 max-w-lg mx-auto w-full px-4 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <button onClick={() => router.back()} className="w-9 h-9 rounded-full bg-kb-card border border-kb-border flex items-center justify-center text-kb-muted hover:text-kb-text">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div className="flex items-center gap-2">
-            {coinPrice?.image ? (
-              <img src={coinPrice.image} alt={meta?.name} className="w-7 h-7 rounded-full" />
-            ) : (
-              <div className="w-7 h-7 rounded-full gradient-bg" />
-            )}
-            <span className="font-bold">{meta?.symbol?.toUpperCase()}</span>
-            <span className="text-kb-muted text-sm">{meta?.name}</span>
+    <div className="flex min-h-dvh flex-col">
+      <ScreenHeader title={meta.symbol} subtitle={`${chain?.type === "TOKEN" ? "TOKEN" : "COIN"} | ${meta.name}`} />
+
+      <section className="flex flex-col items-center px-4 pb-6 pt-2">
+        <TokenIcon id={id} image={price?.image} size={56} />
+        <p className="mt-4 text-[32px] font-bold leading-tight">
+          {formatAmount(balance)} {meta.symbol}
+        </p>
+        <p className="mt-1 text-[15px] text-kb-muted">≈ {formatUsd(balance * current)}</p>
+
+        <div className="mt-6 flex gap-10">
+          <ActionButton href={`/send?crypto=${id}`} label="Envoyer" icon={<ArrowUp size={22} />} />
+          <ActionButton href={`/receive?crypto=${id}`} label="Recevoir" icon={<ArrowDown size={22} />} />
+        </div>
+      </section>
+
+      <section className="mx-4 rounded-2xl bg-kb-card p-4">
+        <div className="flex items-end justify-between">
+          <div>
+            <p className="text-[13px] text-kb-muted">Prix {meta.symbol}</p>
+            <p className="text-xl font-bold">{price ? formatUsd(current) : "—"}</p>
           </div>
-          <div className="w-9" />
+          <p className={`text-sm font-semibold ${periodChange >= 0 ? "text-kb-green" : "text-kb-red"}`}>{formatPct(periodChange)}</p>
         </div>
 
-        {coinPrice && (
-          <div className="text-center mb-2">
-            <p className="text-3xl font-bold">
-              ${coinPrice.current_price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: coinPrice.current_price < 1 ? 4 : 2 })}
-            </p>
-            <p className={`text-sm font-medium ${priceChange >= 0 ? "text-kb-green" : "text-kb-red"}`}>
-              {priceChange >= 0 ? "+" : "-"}${priceChangeAbs.toFixed(2)} ({priceChange >= 0 ? "+" : ""}{priceChange.toFixed(2)}%)
-            </p>
-          </div>
-        )}
-
-        <div className="mb-2">
-          {loading ? (
-            <div className="h-[200px] flex items-center justify-center">
-              <div className="w-8 h-8 border-2 border-kb-blue border-t-transparent rounded-full animate-spin" />
+        <div className="mt-3 h-[150px]">
+          {chartLoading ? (
+            <div className="flex h-full items-center justify-center">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-kb-blue border-t-transparent" />
             </div>
           ) : (
-            renderChart()
+            <PriceChart points={history} positive={periodChange >= 0} />
           )}
         </div>
 
-        <div className="flex justify-center gap-1 mb-6">
-          {[
-            { label: "7j", value: 7 },
-            { label: "1M", value: 30 },
-            { label: "1A", value: 365 },
-          ].map((period) => (
+        <div className="mt-3 grid grid-cols-4 gap-1 rounded-xl bg-kb-dark p-1">
+          {PERIODS.map((p) => (
             <button
-              key={period.value}
-              onClick={() => setDays(period.value)}
-              className={`px-5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                days === period.value
-                  ? "bg-kb-blue text-white"
-                  : "bg-kb-card text-kb-muted hover:text-kb-text border border-kb-border"
-              }`}
+              key={p.days}
+              onClick={() => setDays(p.days)}
+              className={`rounded-lg py-1.5 text-[13px] font-semibold ${days === p.days ? "bg-kb-card-hover text-kb-text" : "text-kb-muted"}`}
             >
-              {period.label}
+              {p.label}
             </button>
           ))}
         </div>
 
-        {coinPrice && (
-          <div className="grid grid-cols-3 gap-3 mb-6">
-            <div className="card p-3 text-center">
-              <p className="text-[10px] text-kb-muted mb-1">Prix</p>
-              <p className="text-sm font-bold">
-                ${coinPrice.current_price < 1 ? coinPrice.current_price.toFixed(4) : coinPrice.current_price.toLocaleString("en-US", { maximumFractionDigits: 0 })}
-              </p>
+        {price && (
+          <div className="mt-4 grid grid-cols-2 gap-3 border-t border-kb-border pt-4 text-sm">
+            <div>
+              <p className="text-kb-muted">Cap. marché</p>
+              <p className="font-semibold">{compactUsd(price.market_cap)}</p>
             </div>
-            <div className="card p-3 text-center">
-              <p className="text-[10px] text-kb-muted mb-1">24h</p>
-              <p className={`text-sm font-bold ${priceChange >= 0 ? "text-kb-green" : "text-kb-red"}`}>
-                {priceChange >= 0 ? "+" : ""}{priceChange.toFixed(2)}%
-              </p>
-            </div>
-            <div className="card p-3 text-center">
-              <p className="text-[10px] text-kb-muted mb-1">Cap.</p>
-              <p className="text-sm font-bold">
-                ${(coinPrice.market_cap / 1e9).toFixed(1)}B
-              </p>
+            <div>
+              <p className="text-kb-muted">Réseau</p>
+              <p className="font-semibold">{chain?.network}</p>
             </div>
           </div>
         )}
+      </section>
 
-        <div className="grid grid-cols-3 gap-3">
-          <Link href="/send" className="btn-secondary text-center text-sm !py-3 !rounded-xl flex items-center justify-center gap-1.5">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
-            Envoyer
-          </Link>
-          <Link href={`/receive?crypto=${id}`} className="btn-secondary text-center text-sm !py-3 !rounded-xl flex items-center justify-center gap-1.5">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
-            Recevoir
-          </Link>
-          <Link href="/market" className="btn-secondary text-center text-sm !py-3 !rounded-xl flex items-center justify-center gap-1.5">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 17 8 12 12 15 21 6" /><polyline points="17 6 21 6 21 10" /></svg>
-            Marché
-          </Link>
+      <h2 className="px-4 pt-6 text-[17px] font-semibold">Transactions</h2>
+      {txLoading ? (
+        <div className="flex justify-center py-10">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-kb-blue border-t-transparent" />
         </div>
+      ) : txs.length === 0 ? (
+        <EmptyActivity receiveHref={`/receive?crypto=${id}`} />
+      ) : (
+        <TransactionList txs={txs} priceOf={priceOf} />
+      )}
+      <div className="h-8" />
+    </div>
+  );
+}
 
-        <Footer />
-      </main>
-      <BottomNav />
-    </>
+function PriceChart({ points, positive }: { points: [number, number][]; positive: boolean }) {
+  if (points.length < 2) {
+    return <div className="flex h-full items-center justify-center text-sm text-kb-muted">Données indisponibles</div>;
+  }
+  const values = points.map(([, v]) => v);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const w = 400;
+  const h = 150;
+  const coords = values.map((v, i) => `${(i / (values.length - 1)) * w},${h - 6 - ((v - min) / range) * (h - 12)}`);
+  const color = positive ? "#2EBD85" : "#F6465D";
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-full w-full">
+      <defs>
+        <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon points={`0,${h} ${coords.join(" ")} ${w},${h}`} fill="url(#chartFill)" />
+      <polyline points={coords.join(" ")} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+    </svg>
   );
 }

@@ -1,120 +1,191 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import ScreenHeader from "@/components/ScreenHeader";
+import PasscodePad from "@/components/PasscodePad";
+import { Check, Info, Lock, Shield } from "@/components/icons";
+import { WALLET_NAME } from "@/lib/useWalletData";
+
+type Step = "terms" | "email" | "create" | "confirm" | "done";
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [step, setStep] = useState<Step>("terms");
+  const [accepted, setAccepted] = useState(false);
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [passcode, setPasscode] = useState("");
+  const [padError, setPadError] = useState("");
+  const [padKey, setPadKey] = useState(0);
+  const [busy, setBusy] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const resetPad = (error: string) => {
+    setPadError(error);
+    setPadKey((k) => k + 1);
+  };
+
+  const submitEmail = (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-
-    if (password !== confirmPassword) {
-      setError("Les mots de passe ne correspondent pas");
+    if (!EMAIL_PATTERN.test(email.trim())) {
+      setEmailError("Adresse email invalide");
       return;
     }
+    setEmailError("");
+    setPadError("");
+    setStep("create");
+  };
 
-    setLoading(true);
+  const onCreate = (code: string) => {
+    setPasscode(code);
+    setPadError("");
+    setPadKey((k) => k + 1);
+    setStep("confirm");
+  };
+
+  const onConfirm = async (code: string) => {
+    if (code !== passcode) {
+      setStep("create");
+      resetPad("Les codes ne correspondent pas. Recommencez.");
+      return;
+    }
+    setBusy(true);
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim(), passcode: code }),
       });
-
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error);
+        if (res.status === 409 || res.status === 400) {
+          setEmailError(data.error);
+          setStep("email");
+        } else {
+          resetPad(data.error ?? "Erreur serveur");
+        }
         return;
       }
-      router.push("/dashboard");
+      setStep("done");
     } catch {
-      setError("Erreur de connexion au serveur");
+      resetPad("Erreur de connexion au serveur");
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
-  return (
-    <div className="min-h-screen flex flex-col">
-      {/* Hero */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 pt-12 pb-8">
-        <img src="/logo.webp" alt="KryptoBase" className="w-20 h-20 rounded-2xl mb-6" />
-        <h1 className="text-2xl font-bold text-center mb-2">Créer un portefeuille</h1>
-        <p className="text-kb-muted text-sm text-center mb-8">
-          Commencez à simuler le trading crypto
-        </p>
+  if (step === "terms") {
+    return (
+      <div className="flex min-h-dvh flex-col">
+        <ScreenHeader backHref="/welcome" />
+        <div className="flex-1 px-6">
+          <h1 className="text-2xl font-bold">Avant de commencer</h1>
+          <p className="mt-2 text-sm text-kb-muted">Veuillez lire ces points importants.</p>
 
-        <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
-          {error && (
-            <div className="bg-kb-red/10 border border-kb-red/20 text-kb-red px-4 py-3 rounded-2xl text-sm">
-              {error}
-            </div>
-          )}
-
-          <div>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-kb-card border border-kb-border rounded-2xl px-4 py-3.5 text-kb-text placeholder-kb-muted focus:outline-none focus:border-kb-blue transition-colors text-sm"
-              placeholder="Email"
-              required
-            />
+          <div className="mt-6 space-y-3">
+            {[
+              { Icon: Info, text: "KryptoBase est une plateforme de simulation. Les cryptos n'ont aucune valeur réelle et ne peuvent pas être retirées." },
+              { Icon: Shield, text: "Ne saisissez jamais ici la phrase de récupération d'un vrai wallet. KryptoBase ne vous la demandera jamais." },
+              { Icon: Lock, text: "Votre code d'accès à 6 chiffres protège votre wallet. Gardez-le pour vous." },
+            ].map(({ Icon, text }) => (
+              <div key={text} className="flex gap-3 rounded-2xl bg-kb-card p-4">
+                <Icon size={22} className="mt-0.5 shrink-0 text-kb-blue" />
+                <p className="text-sm leading-relaxed">{text}</p>
+              </div>
+            ))}
           </div>
+        </div>
 
-          <div>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-kb-card border border-kb-border rounded-2xl px-4 py-3.5 text-kb-text placeholder-kb-muted focus:outline-none focus:border-kb-blue transition-colors text-sm"
-              placeholder="Mot de passe (6 caractères min.)"
-              required
-              minLength={6}
-            />
-          </div>
-
-          <div>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full bg-kb-card border border-kb-border rounded-2xl px-4 py-3.5 text-kb-text placeholder-kb-muted focus:outline-none focus:border-kb-blue transition-colors text-sm"
-              placeholder="Confirmer le mot de passe"
-              required
-              minLength={6}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary"
-          >
-            {loading ? "Création..." : "Créer un portefeuille"}
+        <div className="safe-bottom space-y-4 px-6 pb-8 pt-4">
+          <label className="flex cursor-pointer items-center gap-3">
+            <span
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+                accepted ? "border-kb-blue bg-kb-blue" : "border-kb-muted"
+              }`}
+            >
+              {accepted && <Check size={16} strokeWidth={3} className="text-white" />}
+            </span>
+            <input type="checkbox" className="sr-only" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
+            <span className="text-sm">J&apos;ai lu et j&apos;accepte les conditions d&apos;utilisation</span>
+          </label>
+          <button className="btn-primary" disabled={!accepted} onClick={() => setStep("email")}>
+            Continuer
           </button>
-        </form>
+        </div>
       </div>
+    );
+  }
 
-      {/* Bottom link */}
-      <div className="pb-8 text-center">
-        <p className="text-sm text-kb-muted">
-          Déjà un portefeuille ?{" "}
-          <Link href="/login" className="text-kb-blue font-medium">
-            Se connecter
-          </Link>
+  if (step === "email") {
+    return (
+      <form onSubmit={submitEmail} className="flex min-h-dvh flex-col">
+        <ScreenHeader onBack={() => setStep("terms")} />
+        <div className="flex-1 px-6">
+          <h1 className="text-2xl font-bold">Ajoutez votre email</h1>
+          <p className="mt-2 text-sm leading-relaxed text-kb-muted">
+            Il vous permettra d&apos;accéder à votre wallet depuis n&apos;importe quel appareil.
+          </p>
+          <input
+            type="email"
+            autoFocus
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Adresse email"
+            className={`tw-input mt-8 ${emailError ? "!border-kb-red" : ""}`}
+          />
+          {emailError && <p className="mt-2 text-sm text-kb-red">{emailError}</p>}
+        </div>
+        <div className="safe-bottom px-6 pb-8">
+          <button type="submit" className="btn-primary" disabled={!email.trim()}>
+            Continuer
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  if (step === "create" || step === "confirm") {
+    const creating = step === "create";
+    return (
+      <div className="flex min-h-dvh flex-col">
+        <ScreenHeader onBack={() => (creating ? setStep("email") : (setStep("create"), resetPad("")))} />
+        <PasscodePad
+          key={`${step}-${padKey}`}
+          title={creating ? "Créez un code d'accès" : "Confirmez votre code"}
+          subtitle={
+            creating
+              ? "Choisissez un code à 6 chiffres. Il vous sera demandé pour accéder à votre wallet."
+              : "Saisissez à nouveau votre code d'accès."
+          }
+          error={padError}
+          busy={busy}
+          onComplete={creating ? onCreate : onConfirm}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-dvh flex-col">
+      <div className="flex flex-1 flex-col items-center justify-center px-8">
+        <div className="animate-pop relative mb-10 flex h-36 w-36 items-center justify-center">
+          <div className="absolute inset-0 rounded-full bg-kb-green/20 blur-2xl" />
+          <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-kb-green">
+            <Check size={52} strokeWidth={3} className="text-white" />
+          </div>
+        </div>
+        <h1 className="animate-fade-up text-center text-[26px] font-bold">Votre wallet est prêt !</h1>
+        <p className="animate-fade-up mt-3 text-center text-[15px] leading-relaxed text-kb-muted">
+          {WALLET_NAME} a été créé. Vos adresses Bitcoin, Ethereum, Solana et autres ont été générées.
         </p>
-        <p className="text-[10px] text-kb-muted mt-4 px-6">
-          En créant un compte, vous acceptez nos Conditions de service et notre Politique de confidentialité.
-        </p>
+      </div>
+      <div className="safe-bottom px-6 pb-8">
+        <button className="btn-primary" onClick={() => router.replace("/dashboard")}>
+          Accéder à mon wallet
+        </button>
       </div>
     </div>
   );

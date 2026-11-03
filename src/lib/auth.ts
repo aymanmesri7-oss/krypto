@@ -49,31 +49,29 @@ export async function destroySession() {
   cookieStore.delete(COOKIE_NAME);
 }
 
-export function generateWalletAddress(): string {
-  const bytes = new Uint8Array(20);
-  crypto.getRandomValues(bytes);
-  return "0x" + Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+export const PASSCODE_PATTERN = /^\d{6}$/;
+export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const MAX_ATTEMPTS = 5;
+const LOCK_MS = 15 * 60 * 1000;
+const failedLogins = new Map<string, { count: number; lockedUntil: number }>();
+
+export function loginLockRemaining(email: string): number {
+  const entry = failedLogins.get(email);
+  if (!entry) return 0;
+  return Math.max(0, entry.lockedUntil - Date.now());
 }
 
-const CHAIN_PREFIXES: Record<string, { prefix: string; length: number; charset: string }> = {
-  bitcoin: { prefix: "bc1q", length: 38, charset: "023456789acdefghjklmnpqrstuvwxyz" },
-  ethereum: { prefix: "0x", length: 40, charset: "0123456789abcdef" },
-  tether: { prefix: "0x", length: 40, charset: "0123456789abcdef" },
-  solana: { prefix: "", length: 44, charset: "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz" },
-  binancecoin: { prefix: "bnb1", length: 38, charset: "023456789acdefghjklmnpqrstuvwxyz" },
-  ripple: { prefix: "r", length: 33, charset: "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz" },
-  dogecoin: { prefix: "D", length: 33, charset: "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz" },
-  cardano: { prefix: "addr1q", length: 58, charset: "023456789acdefghjklmnpqrstuvwxyz" },
-  "avalanche-2": { prefix: "0x", length: 40, charset: "0123456789abcdef" },
-  "matic-network": { prefix: "0x", length: 40, charset: "0123456789abcdef" },
-};
+export function recordLoginFailure(email: string) {
+  const entry = failedLogins.get(email) ?? { count: 0, lockedUntil: 0 };
+  entry.count += 1;
+  if (entry.count >= MAX_ATTEMPTS) {
+    entry.lockedUntil = Date.now() + LOCK_MS;
+    entry.count = 0;
+  }
+  failedLogins.set(email, entry);
+}
 
-export function generateCryptoAddress(cryptoId: string): string {
-  const config = CHAIN_PREFIXES[cryptoId];
-  if (!config) return generateWalletAddress();
-  const remaining = config.length - config.prefix.length;
-  const bytes = new Uint8Array(remaining);
-  crypto.getRandomValues(bytes);
-  const chars = Array.from(bytes).map(b => config.charset[b % config.charset.length]).join("");
-  return config.prefix + chars;
+export function clearLoginFailures(email: string) {
+  failedLogins.delete(email);
 }

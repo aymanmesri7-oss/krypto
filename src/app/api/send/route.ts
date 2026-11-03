@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { initDb, get, run } from "@/lib/db";
+import { CHAINS, getCrypto, isValidAddress, normalizeAddress } from "@/lib/chains";
+import { ensureAddresses } from "@/lib/wallet";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -9,30 +11,38 @@ export async function POST(request: Request) {
   }
 
   await initDb();
-  const { cryptoId, recipient, amount } = await request.json();
+  const body = await request.json();
+  const cryptoId = String(body.cryptoId ?? "");
+  const amount = Number(body.amount);
+  const crypto = getCrypto(cryptoId);
 
-  if (!cryptoId || !recipient || !amount || amount <= 0) {
+  if (!crypto || !Number.isFinite(amount) || amount <= 0) {
     return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
   }
 
-  let receiverUser = get<{ id: number }>(
-    "SELECT id FROM users WHERE wallet_address = ?",
-    [recipient]
-  );
-
-  if (!receiverUser) {
-    receiverUser = get<{ id: number }>(
-      "SELECT id FROM users WHERE email = ?",
-      [recipient]
+  const recipient = String(body.recipient ?? "");
+  if (!isValidAddress(cryptoId, recipient)) {
+    return NextResponse.json(
+      { error: `Adresse ${CHAINS[cryptoId].network} invalide` },
+      { status: 400 }
     );
   }
 
-  if (!receiverUser) {
-    return NextResponse.json({ error: "Destinataire introuvable" }, { status: 404 });
+  const address = normalizeAddress(cryptoId, recipient);
+  const receiver = get<{ id: number }>(
+    "SELECT user_id AS id FROM wallet_addresses WHERE crypto_id = ? AND address = ?",
+    [cryptoId, address]
+  );
+
+  if (!receiver) {
+    return NextResponse.json(
+      { error: "Aucun wallet KryptoBase ne correspond à cette adresse" },
+      { status: 404 }
+    );
   }
 
-  if (receiverUser.id === session.userId) {
-    return NextResponse.json({ error: "Vous ne pouvez pas envoyer à vous-même" }, { status: 400 });
+  if (receiver.id === session.userId) {
+    return NextResponse.json({ error: "Vous ne pouvez pas vous envoyer des fonds à vous-même" }, { status: 400 });
   }
 
   const senderBalance = get<{ amount: number }>(
@@ -41,7 +51,7 @@ export async function POST(request: Request) {
   );
 
   if (!senderBalance || senderBalance.amount < amount) {
-    return NextResponse.json({ error: "Solde insuffisant" }, { status: 400 });
+    return NextResponse.json({ error: `Solde ${crypto.symbol} insuffisant` }, { status: 400 });
   }
 
   run(
@@ -49,27 +59,20 @@ export async function POST(request: Request) {
     [amount, session.userId, cryptoId]
   );
 
-  const receiverBalance = get(
-    "SELECT id FROM balances WHERE user_id = ? AND crypto_id = ?",
-    [receiverUser.id, cryptoId]
-  );
-
-  if (receiverBalance) {
+  if (get("SELECT id FROM balances WHERE user_id = ? AND crypto_id = ?", [receiver.id, cryptoId])) {
     run(
       "UPDATE balances SET amount = amount + ? WHERE user_id = ? AND crypto_id = ?",
-      [amount, receiverUser.id, cryptoId]
+      [amount, receiver.id, cryptoId]
     );
   } else {
-    run(
-      "INSERT INTO balances (user_id, crypto_id, amount) VALUES (?, ?, ?)",
-      [receiverUser.id, cryptoId, amount]
-    );
+    run("INSERT INTO balances (user_id, crypto_id, amount) VALUES (?, ?, ?)", [receiver.id, cryptoId, amount]);
   }
 
   run(
     "INSERT INTO transactions (sender_id, receiver_id, crypto_id, amount, type) VALUES (?, ?, ?, ?, 'transfer')",
-    [session.userId, receiverUser.id, cryptoId, amount]
+    [session.userId, receiver.id, cryptoId, amount]
   );
 
-  return NextResponse.json({ message: "Transaction effectuée avec succès" });
+  ensureAddresses(session.userId);
+  return NextResponse.json({ ok: true });
 }

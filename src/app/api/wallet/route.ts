@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession, generateCryptoAddress } from "@/lib/auth";
-import { initDb, get, all, run } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { initDb } from "@/lib/db";
 import { SUPPORTED_CRYPTOS } from "@/lib/coingecko";
+import { ensureAddresses } from "@/lib/wallet";
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
@@ -10,51 +11,21 @@ export async function GET(request: NextRequest) {
   }
 
   await initDb();
+  const addresses = ensureAddresses(session.userId);
 
   const cryptoId = request.nextUrl.searchParams.get("cryptoId");
-
   if (cryptoId) {
-    let addr = get<{ address: string }>(
-      "SELECT address FROM wallet_addresses WHERE user_id = ? AND crypto_id = ?",
-      [session.userId, cryptoId]
-    );
-
-    if (!addr) {
-      const newAddress = generateCryptoAddress(cryptoId);
-      run(
-        "INSERT INTO wallet_addresses (user_id, crypto_id, address) VALUES (?, ?, ?)",
-        [session.userId, cryptoId, newAddress]
-      );
-      addr = { address: newAddress };
-    }
-
-    return NextResponse.json({ cryptoId, address: addr.address });
+    const address = addresses.get(cryptoId);
+    if (!address) return NextResponse.json({ error: "Crypto inconnue" }, { status: 404 });
+    return NextResponse.json({ cryptoId, address });
   }
 
-  const existing = all<{ crypto_id: string; address: string }>(
-    "SELECT crypto_id, address FROM wallet_addresses WHERE user_id = ?",
-    [session.userId]
+  return NextResponse.json(
+    SUPPORTED_CRYPTOS.map((c) => ({
+      cryptoId: c.id,
+      symbol: c.symbol,
+      name: c.name,
+      address: addresses.get(c.id)!,
+    }))
   );
-
-  const existingMap = new Map(existing.map((e) => [e.crypto_id, e.address]));
-
-  for (const crypto of SUPPORTED_CRYPTOS) {
-    if (!existingMap.has(crypto.id)) {
-      const newAddress = generateCryptoAddress(crypto.id);
-      run(
-        "INSERT INTO wallet_addresses (user_id, crypto_id, address) VALUES (?, ?, ?)",
-        [session.userId, crypto.id, newAddress]
-      );
-      existingMap.set(crypto.id, newAddress);
-    }
-  }
-
-  const addresses = SUPPORTED_CRYPTOS.map((c) => ({
-    cryptoId: c.id,
-    symbol: c.symbol,
-    name: c.name,
-    address: existingMap.get(c.id)!,
-  }));
-
-  return NextResponse.json(addresses);
 }

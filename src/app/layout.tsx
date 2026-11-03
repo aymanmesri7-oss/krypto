@@ -1,18 +1,29 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "KryptoBase - Crypto Simulation Platform",
-  description: "Simulate crypto trading with real-time prices. No real money involved.",
+  title: "KryptoBase Wallet",
+  description: "Wallet crypto de simulation : envoyez et recevez des cryptos avec des prix en temps réel. Aucune vraie cryptomonnaie.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#1B1B1C",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={`${inter.className} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="fr" className={`${inter.className} antialiased`}>
+      <body>
+        <div className="app-frame relative mx-auto flex min-h-dvh w-full max-w-[440px] flex-col">
+          {children}
+        </div>
+      </body>
     </html>
   );
 }
