@@ -32,13 +32,19 @@ export async function initDb(): Promise<SqlJsDatabase> {
     db.run(`
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE NOT NULL,
+        wallet_name TEXT DEFAULT 'Main Wallet 1',
+        seed_hash TEXT UNIQUE,
+        email TEXT DEFAULT '',
         password TEXT NOT NULL,
         wallet_address TEXT UNIQUE NOT NULL,
         role TEXT DEFAULT 'user',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    try { db.run("ALTER TABLE users ADD COLUMN seed_hash TEXT"); } catch {}
+    try { db.run("ALTER TABLE users ADD COLUMN wallet_name TEXT DEFAULT 'Main Wallet 1'"); } catch {}
+    db.run("CREATE INDEX IF NOT EXISTS idx_users_seed_hash ON users(seed_hash)");
 
     db.run(`
       CREATE TABLE IF NOT EXISTS balances (

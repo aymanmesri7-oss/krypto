@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { CryptoPrice } from "./coingecko";
 
 export interface Me {
-  email: string;
+  walletName: string;
   role: string;
   walletAddress: string;
 }

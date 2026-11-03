@@ -9,8 +9,8 @@ export async function GET() {
   }
 
   await initDb();
-  const user = get<{ id: number; email: string; role: string; wallet_address: string }>(
-    "SELECT id, email, role, wallet_address FROM users WHERE id = ?",
+  const user = get<{ id: number; wallet_name: string; role: string; wallet_address: string }>(
+    "SELECT id, wallet_name, role, wallet_address FROM users WHERE id = ?",
     [session.userId]
   );
 
@@ -19,7 +19,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    email: user.email,
+    walletName: user.wallet_name || "Main Wallet 1",
     role: user.role,
     walletAddress: user.wallet_address,
   });

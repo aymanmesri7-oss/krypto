@@ -12,11 +12,11 @@ export async function GET() {
 
   const users = all<{
     id: number;
-    email: string;
+    wallet_name: string;
     wallet_address: string;
     role: string;
     created_at: string;
-  }>("SELECT id, email, wallet_address, role, created_at FROM users ORDER BY created_at DESC");
+  }>("SELECT id, wallet_name, wallet_address, role, created_at FROM users ORDER BY created_at DESC");
 
   return NextResponse.json(users);
 }

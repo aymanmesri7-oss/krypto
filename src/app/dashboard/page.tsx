@@ -17,7 +17,7 @@ const HIDE_KEY = "kb_hide_balance";
 const HIDDEN = "••••••";
 
 export default function DashboardPage() {
-  const { balances, priceOf, loading } = useWalletData();
+  const { me, balances, priceOf, loading } = useWalletData();
   const { txs, loading: txLoading } = useTransactions();
   const [tab, setTab] = useState<"crypto" | "activity">("crypto");
   const [hidden, setHidden] = useState(false);
@@ -58,7 +58,7 @@ export default function DashboardPage() {
           <Settings size={22} strokeWidth={1.8} />
         </Link>
         <Link href="/settings" className="flex items-center gap-1.5 rounded-full px-3 py-1.5 active:bg-kb-card">
-          <span className="text-[15px] font-semibold">{WALLET_NAME}</span>
+          <span className="text-[15px] font-semibold">{me?.walletName ?? WALLET_NAME}</span>
         </Link>
         <Link href="/market" aria-label="Rechercher" className="flex h-10 w-10 items-center justify-center rounded-full active:bg-kb-card">
           <Search size={22} strokeWidth={1.8} />

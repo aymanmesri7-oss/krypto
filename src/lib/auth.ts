@@ -9,7 +9,7 @@ const COOKIE_NAME = "kb_session";
 
 export interface SessionPayload {
   userId: number;
-  email: string;
+  walletName: string;
   role: string;
 }
 
@@ -50,28 +50,27 @@ export async function destroySession() {
 }
 
 export const PASSCODE_PATTERN = /^\d{6}$/;
-export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const MAX_ATTEMPTS = 5;
 const LOCK_MS = 15 * 60 * 1000;
 const failedLogins = new Map<string, { count: number; lockedUntil: number }>();
 
-export function loginLockRemaining(email: string): number {
-  const entry = failedLogins.get(email);
+export function loginLockRemaining(key: string): number {
+  const entry = failedLogins.get(key);
   if (!entry) return 0;
   return Math.max(0, entry.lockedUntil - Date.now());
 }
 
-export function recordLoginFailure(email: string) {
-  const entry = failedLogins.get(email) ?? { count: 0, lockedUntil: 0 };
+export function recordLoginFailure(key: string) {
+  const entry = failedLogins.get(key) ?? { count: 0, lockedUntil: 0 };
   entry.count += 1;
   if (entry.count >= MAX_ATTEMPTS) {
     entry.lockedUntil = Date.now() + LOCK_MS;
     entry.count = 0;
   }
-  failedLogins.set(email, entry);
+  failedLogins.set(key, entry);
 }
 
-export function clearLoginFailures(email: string) {
-  failedLogins.delete(email);
+export function clearLoginFailures(key: string) {
+  failedLogins.delete(key);
 }

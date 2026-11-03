@@ -8,7 +8,7 @@ import { shortAddress } from "@/lib/format";
 
 interface User {
   id: number;
-  email: string;
+  wallet_name: string;
   wallet_address: string;
   role: string;
   created_at: string;
@@ -78,8 +78,10 @@ export default function AdminPage() {
           <select value={userId} onChange={(e) => setUserId(e.target.value)} className="tw-input !bg-kb-dark">
             {users.map((u) => (
               <option key={u.id} value={u.id}>
-                {u.email}
+                {u.wallet_name || "Wallet"}
                 {u.role === "admin" ? " (admin)" : ""}
+                {" — "}
+                {shortAddress(u.wallet_address, 6, 4)}
               </option>
             ))}
           </select>
@@ -114,7 +116,7 @@ export default function AdminPage() {
               {users.map((u) => (
                 <div key={u.id} className="px-4 py-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-medium">{u.email}</span>
+                    <span className="truncate text-sm font-medium">{u.wallet_name || "Wallet"}</span>
                     {u.role === "admin" && (
                       <span className="rounded-full bg-kb-blue px-2 py-0.5 text-[10px] font-semibold text-white">Admin</span>
                     )}

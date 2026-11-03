@@ -4,9 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import TabBar from "@/components/TabBar";
-import { Check, ChevronRight, Copy, Crown, Dollar, Info, Lock, Logout, Mail, Wallet } from "@/components/icons";
+import { Check, ChevronRight, Copy, Crown, Dollar, Info, Lock, Logout, Wallet } from "@/components/icons";
 import { shortAddress } from "@/lib/format";
-import { useWalletData, WALLET_NAME } from "@/lib/useWalletData";
+import { useWalletData } from "@/lib/useWalletData";
 
 function Row({
   Icon,
@@ -66,8 +66,7 @@ export default function SettingsPage() {
 
       <div className="space-y-5 px-4 pt-2">
         <div className="overflow-hidden rounded-2xl bg-kb-card">
-          <Row Icon={Wallet} label="Wallet" value={WALLET_NAME} />
-          <Row Icon={Mail} label="Email" value={me?.email ?? "…"} />
+          <Row Icon={Wallet} label="Wallet" value={me?.walletName ?? "…"} />
           <Row
             Icon={Copy}
             label="Adresse EVM"
