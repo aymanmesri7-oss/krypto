@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@theme {
+  --color-kb-dark: #0B0E11;
+  --color-kb-darker: #070A0D;
+  --color-kb-card: #141922;
+  --color-kb-card-hover: #1A2030;
+  --color-kb-border: #1E2A3A;
+  --color-kb-blue: #3375FF;
+  --color-kb-violet: #7B3FE4;
+  --color-kb-green: #2EBD85;
+  --color-kb-red: #F6465D;
+  --color-kb-text: #EAECEF;
+  --color-kb-muted: #5E6673;
+  --color-kb-input: #0F1318;
+  --color-kb-yellow: #F0B90B;
+  --color-kb-accent: #3375FF;
+}
+
+body {
+  background-color: var(--color-kb-dark);
+  color: var(--color-kb-text);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #00B4FF, #7B3FE4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-bg {
+  background: linear-gradient(135deg, #3375FF, #7B3FE4);
+}
+
+.gradient-border {
+  border: 1px solid transparent;
+  background-image: linear-gradient(var(--color-kb-card), var(--color-kb-card)),
+    linear-gradient(135deg, #3375FF, #7B3FE4);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+.card {
+  background: var(--color-kb-card);
+  border-radius: 16px;
+  border: 1px solid var(--color-kb-border);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #3375FF, #7B3FE4);
+  color: white;
+  font-weight: 600;
+  padding: 14px 24px;
+  border-radius: 16px;
+  width: 100%;
+  transition: opacity 0.2s;
+}
+.btn-primary:hover { opacity: 0.9; }
+.btn-primary:disabled { opacity: 0.5; }
+
+.btn-secondary {
+  background: var(--color-kb-card);
+  border: 1px solid var(--color-kb-border);
+  color: var(--color-kb-text);
+  font-weight: 600;
+  padding: 14px 24px;
+  border-radius: 16px;
+  width: 100%;
+  transition: all 0.2s;
+}
+.btn-secondary:hover { background: var(--color-kb-card-hover); }
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--color-kb-input) inset;
+  -webkit-text-fill-color: var(--color-kb-text);
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--color-kb-dark); }
+::-webkit-scrollbar-thumb { background: var(--color-kb-border); border-radius: 3px; }
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
